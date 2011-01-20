@@ -1,0 +1,4 @@
+Implementation of Flyvbjerg and Petersen's blocking method
+
+The blocking method is used to obtain the actual standard deviation
+of a set of correlated data.
