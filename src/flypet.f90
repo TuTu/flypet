@@ -6,7 +6,7 @@ PROGRAM flypet
   INTEGER :: num_data_per_block, i, j, idx
   LOGICAL :: is_num_block_transform_assigned, is_input_filename_assigned
   LOGICAL :: is_output_filename_assigned, is_eof
-  REAL(KIND=8) :: average, sdev, block1, block2
+  REAL(KIND=8) :: average, sdev, block1, block2, error
   REAL(KIND=8), DIMENSION(:), ALLOCATABLE :: data
   CHARACTER, PARAMETER :: COMMENT_CHAR = '#'
   INTEGER, EXTERNAL :: count_num_data
@@ -71,8 +71,10 @@ PROGRAM flypet
      end do
      sdev = (sdev / num_data) / (num_data - 1)
      sdev = sqrt(sdev)
-     call output(num_block_transform, sdev)
-     num_data = num_data / 2  !ignore the last datum if total number is odd
+     error = sdev / sqrt(2.0d0 * (num_data - 1))
+     
+     call output(num_block_transform, sdev, error)
+     num_data = num_data / 2  !For next loop, ignore the last datum if total number is odd
   end do
 
   
@@ -200,41 +202,16 @@ CONTAINS
     end do
   END SUBROUTINE read_real_datum
 
-  SUBROUTINE output(num_bt, sd)
+  SUBROUTINE output(num_bt, sd, err)
     IMPLICIT NONE
     INTEGER :: num_bt
-    REAL(KIND=8) :: sd
-    write(*,*) num_bt, sd
+    REAL(KIND=8) :: sd, err
+    write(*,*) num_bt, sd, err
     if (is_output_filename_assigned) then
-       write(output_fileid, *) num_bt, sd
+       write(output_fileid, *) num_bt, sd, err
     end if
   END SUBROUTINE output
 END PROGRAM flypet
-
-! SUBROUTINE read_real_datum(input_fileid, comment_char)
-!   IMPLICIT NONE
-!   INTEGER, INTENT(IN) :: input_fileid
-!   CHARACTER, INTENT(IN) :: comment_char
-!   REAL(KIND=8) :: read_real_datum
-!   INTEGER :: stat
-!   CHARACTER(LEN=128) :: line
-
-!   do while(.TRUE.)
-!      read(input_fileid, "(A)", IOSTAT=stat) line
-!      if (stat /= 0) then
-!         write(*,*) "Error occurred while reading data line!"
-!         call EXIT(1)
-!      end if
-!      if (line(1:1) == comment_char) then
-!         CYCLE
-!      end if
-!      read(line, *, IOSTAT=stat) read_real_datum
-!      if (stat /= 0) then
-!         write(*,*) "Error occurred while parsing data line!"
-!         call EXIT(1)
-!      end if     
-!   end do
-! END SUBROUTINE read_real_datum
 
 FUNCTION count_num_data(input_fileid, comment_char)
   IMPLICIT NONE
