@@ -2,7 +2,7 @@ PROGRAM flypet
   IMPLICIT NONE
   CHARACTER(LEN=128) :: input_filename, output_filename
   INTEGER, PARAMETER :: input_fileid = 11, output_fileid = 12
-  INTEGER :: num_block_transform, stat, num_data
+  INTEGER :: num_block_transform, stat, num_data, column
   INTEGER :: num_data_per_block, i, j, idx
   LOGICAL :: is_num_block_transform_assigned, is_input_filename_assigned
   LOGICAL :: is_output_filename_assigned, is_eof
@@ -43,7 +43,7 @@ PROGRAM flypet
 
   !read all data
   do i = 1, num_data
-     call read_real_datum(data(i), EOF=is_eof)
+     call read_real_datum(data(i), column, EOF=is_eof)
   end do
   
   average = SUM(data)/SIZE(data)
@@ -55,6 +55,7 @@ PROGRAM flypet
      write(output_fileid,*) "# Average = ", average
   end if
 
+  !start block transformation
   num_block_transform = -1
   do while(num_data > 1)
      num_block_transform = num_block_transform + 1
@@ -87,8 +88,13 @@ CONTAINS
 
     n = COMMAND_ARGUMENT_COUNT()
     call GET_COMMAND_ARGUMENT(NUMBER=0, VALUE=arg)
-    usage = "Usage: " // TRIM(ADJUSTL(arg)) // " -f <in file> [-o <out file>]"
+    !<column>: the column to be used as data.
+    usage = "Usage: " // TRIM(ADJUSTL(arg)) // " -f <in file> [-o <out file>&
+         & -c <column>]"
 
+    !Default values:
+    column = 1
+    
     if (n < LEAST_REQUIRED_NUM_ARG) then
        write(*,*) "Insufficient arguments!"
        write(*,*) usage
@@ -120,22 +126,25 @@ CONTAINS
           end if
           is_output_filename_assigned = .TRUE.
           
-!        case ('-n')
-!           call GET_COMMAND_ARGUMENT(NUMBER=i, VALUE=arg, STATUS=stat)
-!           i = i + 1
-!           if (stat /= 0) then
-!              write(*,*) "Unable to read the value of argument -n"
-!              write(*,*) usage
-!              call EXIT(1)
-!           end if
-!           read(arg, *, IOSTAT=stat) num_block_transform
-!           if (stat /= 0) then
-!              write(*,*) "Unable to parse the value of argument -n, an&
-!                   & integer is needed!"
-!              write(*,*) usage
-!              call EXIT(1)
-!           end if
-!           is_num_block_transform_assigned = .TRUE.
+       case ('-c')
+          call GET_COMMAND_ARGUMENT(NUMBER=i, VALUE=arg, STATUS=stat)
+          i = i + 1
+          if (stat /= 0) then
+             write(*,*) "Unable to read the value of argument -c"
+             write(*,*) usage
+             call EXIT(1)
+          end if
+          read(arg, *, IOSTAT=stat) column
+          if (stat /= 0) then
+             write(*,*) "Unable to parse the value of argument -c, an&
+                  & integer is needed!"
+             write(*,*) usage
+             call EXIT(1)
+          else if (column < 1) then
+             write(*,*) "Illegal value of argument -c, a positive integer&
+                  & is needed!"
+             call EXIT(1)
+          end if
           
        case default
           write(*,*) "Unknown argument: ", arg
@@ -170,11 +179,12 @@ CONTAINS
 !     end if
 !   END SUBROUTINE cal_num_block_transform
 
-  SUBROUTINE read_real_datum(datum, eof)
+  SUBROUTINE read_real_datum(datum, col, eof)
     IMPLICIT NONE
     REAL(KIND=8), INTENT(OUT) :: datum
+    INTEGER, INTENT(IN) :: col
     LOGICAL, INTENT(OUT) :: eof
-    INTEGER :: stat
+    INTEGER :: stat, i, space_idx
     CHARACTER(LEN=128) :: line
 
     eof = .FALSE.
@@ -186,14 +196,28 @@ CONTAINS
           call EXIT(1)
        else if (stat < 0) then !End of file
           eof = .TRUE.
-          write(*,*) "End of line occurred while reading data line!"
+          write(*,*) "End of file occurred while reading data line!"
           call EXIT(1)
        end if
 
        if (TRIM(ADJUSTL(line)) /= '' .AND. &
-            &INDEX(ADJUSTL(line), comment_char) /= 1) then          
+            &INDEX(ADJUSTL(line), comment_char) /= 1) then
+          if (col > 1) then
+             do i = 1, col-1
+                line = ADJUSTL(line)
+                space_idx = INDEX(line, ' ')
+                if (space_idx == 0) then !no space is found
+                   write(*,*) "Insufficient columns in data file!"
+                   call EXIT(1)
+                end if
+                line = line(space_idx + 1:)
+             end do
+          end if
           read(line, *, IOSTAT=stat) datum
-          if (stat /= 0) then
+          if (stat < 0) then
+             write(*,*) "Insufficient columns in data file!"
+             call EXIT(1)
+          else if (stat > 0) then
              write(*,*) "Error occurred while parsing data line!"
              call EXIT(1)
           end if
