@@ -1,3 +1,15 @@
+!***************************************************************************
+!                                                                           
+!     Flyvbjerg og Petersen                                                 
+!                                                                           
+!     this programme calculates the standard deviation of a set of          
+!     correlated data using the method of H. Flyvbjerg and                  
+!     H.G. Petersen (1989) J. Chem. Phys., 91, 461--466.                    
+!                                                                           
+!     KM Tu 2011                                                            
+!                                                                           
+!***************************************************************************
+
 PROGRAM flypet
   IMPLICIT NONE
   CHARACTER(LEN=128) :: input_filename, output_filename
